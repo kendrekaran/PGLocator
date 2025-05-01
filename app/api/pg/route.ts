@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import PgListing from './model';
-import { getServerSession as getSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getSession } from 'next-auth/react';
+import { cookies } from 'next/headers';
 
 // GET /api/pg - Get all PG listings with optional filtering
 export async function GET(req: NextRequest) {
@@ -73,34 +73,38 @@ export async function GET(req: NextRequest) {
 // POST /api/pg - Add a new PG listing (admin only)
 export async function POST(req: NextRequest) {
   try {
-    let session;
-    try {
-      session = await getSession(authOptions);
-    } catch (error) {
-      console.error('Error getting session:', error);
-      return NextResponse.json(
-        { error: 'Authentication error. Please log in again.' },
-        { status: 401 }
-      );
-    }
+    // Use cookies directly for authentication since we're in a server component
+    const cookieStore = cookies();
+    const userCookie = (await cookieStore).get('user');
     
-    // Check if session exists
-    if (!session || !session.user) {
+    if (!userCookie || !userCookie.value) {
       return NextResponse.json(
         { error: 'Unauthorized - Please login' },
         { status: 401 }
       );
     }
     
+    // Parse the user data
+    let userData;
+    try {
+      userData = JSON.parse(decodeURIComponent(userCookie.value));
+    } catch (error) {
+      console.error('Error parsing user cookie:', error);
+      return NextResponse.json(
+        { error: 'Invalid authentication data' },
+        { status: 401 }
+      );
+    }
+    
     // Log session details for debugging
-    console.log('Session user data:', { 
-      id: session.user.id,
-      email: session.user.email,
-      userType: session.user.userType 
+    console.log('User data from cookie:', { 
+      id: userData.id,
+      email: userData.email,
+      userType: userData.userType 
     });
     
     // Check if user is admin
-    if (session.user.userType !== 'admin') {
+    if (userData.userType !== 'admin') {
       return NextResponse.json(
         { error: 'Only admins can add PG listings' },
         { status: 403 }
@@ -144,9 +148,9 @@ export async function POST(req: NextRequest) {
     // Add user information
     const newListing = {
       ...data,
-      ownerId: session.user.id,
-      ownerName: `${session.user.firstName || ''} ${session.user.lastName || ''}`.trim() || 'Admin User',
-      ownerContact: session.user.phone || 'Not provided',
+      ownerId: userData.id,
+      ownerName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'Admin User',
+      ownerContact: userData.phone || 'Not provided',
       // Use default image if none provided
       images: data.images && data.images.length > 0 
         ? data.images 

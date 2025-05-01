@@ -21,9 +21,7 @@ import {
   Utensils,
   ShowerHead,
   Wind,
-  X,
-  ChevronLeft,
-  ChevronRight,
+  X
 } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
 import { useToast } from "@/components/toast-provider"
@@ -245,56 +243,60 @@ export default function ExplorePage() {
       setIsLoading(true);
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => {
+        controller.abort(new DOMException('Timeout', 'TimeoutError'));
+      }, 10000); // 10 second timeout
       
-      const response = await fetch('/api/pg', {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.error('API endpoint not found');
-          // Just don't add any user listings, but don't throw - use static data
+      try {
+        const response = await fetch('/api/pg', {
+          signal: controller.signal
+        });
+        
+        // Make sure response is valid JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('API returned non-JSON response:', contentType);
+          // Use only static listings
           setUserAddedListings([]);
           return;
         }
         
-        const errorText = await response.text();
-        console.error('API error response:', errorText);
-        throw new Error(`Failed to fetch PG listings: ${response.status} ${response.statusText}`);
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.error('API endpoint not found');
+            // Just don't add any user listings, but don't throw - use static data
+            setUserAddedListings([]);
+            return;
+          }
+          
+          const errorText = await response.text();
+          console.error('API error response:', errorText);
+          throw new Error(`Failed to fetch PG listings: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Map the fetched data to match the format of our static listings
+        const formattedListings = data.map((listing: any) => ({
+          id: listing._id,
+          title: listing.title,
+          location: listing.location,
+          price: listing.price,
+          image: listing.images[0] || '/placeholder-hostel.jpg',
+          amenities: listing.amenities,
+          rating: listing.rating || 4.5,
+          reviews: listing.reviews?.length || 0,
+          type: listing.roomType,
+          gender: listing.gender,
+          saved: false,
+          city: listing.city,
+          isUserAdded: true
+        }));
+        
+        setUserAddedListings(formattedListings);
+      } finally {
+        clearTimeout(timeoutId);
       }
-      
-      // Make sure response is valid JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('API returned non-JSON response:', contentType);
-        // Use only static listings
-        setUserAddedListings([]);
-        return;
-      }
-      
-      const data = await response.json();
-      
-      // Map the fetched data to match the format of our static listings
-      const formattedListings = data.map((listing: any) => ({
-        id: listing._id,
-        title: listing.title,
-        location: listing.location,
-        price: listing.price,
-        image: listing.images[0] || '/placeholder-hostel.jpg',
-        amenities: listing.amenities,
-        rating: listing.rating || 4.5,
-        reviews: listing.reviews?.length || 0,
-        type: listing.roomType,
-        gender: listing.gender,
-        saved: false,
-        city: listing.city,
-        isUserAdded: true
-      }));
-      
-      setUserAddedListings(formattedListings);
     } catch (error) {
       console.error('Error fetching PG listings:', error);
       // Don't show error toast to user - just use static data
