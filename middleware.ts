@@ -20,9 +20,7 @@ export function middleware(request: NextRequest) {
       }
 
       // Protect user routes
-      if ((path.startsWith('/dashboard') || path.startsWith('/bookings') || path.startsWith('/favorites')) && userData.userType !== 'user') {
-        return NextResponse.redirect(new URL('/admin/dashboard', request.url))
-      }
+     
     } catch (error) {
       return NextResponse.redirect(new URL('/login', request.url))
     }

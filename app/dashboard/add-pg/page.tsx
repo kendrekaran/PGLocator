@@ -1,24 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/toast-provider"
-import { useAuth } from "@/context/auth-context"
 
 export default function AddPgPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const [isRedirecting, setIsRedirecting] = useState(false)
-  const [authChecked, setAuthChecked] = useState(false)
   const router = useRouter()
   const { showToast } = useToast()
-  const { isAuthenticated, user, isLoading: authLoading } = useAuth()
   
   const [formData, setFormData] = useState({
     title: "",
@@ -40,32 +36,6 @@ export default function AddPgPage() {
       laundry: false
     }
   })
-
-  // Check authentication after auth context has loaded
-  useEffect(() => {
-    // Don't do anything until auth is loaded
-    if (authLoading) {
-      return;
-    }
-    
-    // Now we can check authentication
-    setAuthChecked(true);
-    
-    if (!isAuthenticated) {
-      setIsRedirecting(true);
-      showToast("Please login to continue", "error");
-      router.push("/login?redirect=/dashboard/add-pg");
-      return;
-    }
-    
-    // Check for admin role after we confirm user is authenticated
-    if (user?.userType !== 'admin') {
-      setIsRedirecting(true);
-      showToast("Only admins can add PG listings", "error");
-      router.push("/dashboard");
-      return;
-    }
-  }, [isAuthenticated, user, authLoading, router, showToast]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -118,7 +88,6 @@ export default function AddPgPage() {
       
       console.log('Submitting PG data:', pgData);
       
-      // Use the new API endpoint that doesn't rely on next-auth
       const response = await fetch('/api/admin/add-pg', {
         method: 'POST',
         headers: {
@@ -141,7 +110,7 @@ export default function AddPgPage() {
       }
       
       if (!response.ok) {
-        throw new Error(data.error || `Error ${response.status}: Failed to add PG listing`);
+        throw new Error(data.error || data.message || `Error ${response.status}: Failed to add PG listing`);
       }
       
       showToast('PG listing added successfully!', 'success');
@@ -153,27 +122,6 @@ export default function AddPgPage() {
       setIsLoading(false);
     }
   };
-  
-  // Show loading state while checking auth or if redirecting
-  if (authLoading || isRedirecting || !authChecked) {
-    return (
-      <div className="flex flex-col justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    )
-  }
-  
-  // Show access denied if not admin (as a fallback)
-  if (!isAuthenticated || user?.userType !== 'admin') {
-    return (
-      <div className="flex flex-col justify-center items-center min-h-screen">
-        <h1 className="text-2xl font-bold mb-2">Access Denied</h1>
-        <p className="text-muted-foreground mb-4">You don't have permission to access this page.</p>
-        <Button onClick={() => router.push('/dashboard')}>Go to Dashboard</Button>
-      </div>
-    )
-  }
   
   return (
     <div className="container max-w-3xl py-8">
@@ -393,4 +341,4 @@ export default function AddPgPage() {
       </Card>
     </div>
   )
-} 
+}

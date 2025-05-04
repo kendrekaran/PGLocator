@@ -39,7 +39,6 @@ export default function ExplorePage() {
   const [city, setCity] = useState("all")
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [redirectUrl, setRedirectUrl] = useState("")
-  const { isAuthenticated, user } = useAuth()
   const { showToast } = useToast()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
@@ -249,149 +248,136 @@ export default function ExplorePage() {
       
       try {
         const response = await fetch('/api/pg', {
-          signal: controller.signal
+          signal: controller.signal,
+          cache: 'no-store'
         });
         
-        // Make sure response is valid JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error('API returned non-JSON response:', contentType);
-          // Use only static listings
-          setUserAddedListings([]);
-          return;
-        }
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
-          if (response.status === 404) {
-            console.error('API endpoint not found');
-            // Just don't add any user listings, but don't throw - use static data
-            setUserAddedListings([]);
-            return;
-          }
-          
-          const errorText = await response.text();
-          console.error('API error response:', errorText);
-          throw new Error(`Failed to fetch PG listings: ${response.status} ${response.statusText}`);
+          throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
         const data = await response.json();
+        console.log('Fetched PG listings:', data);
         
-        // Map the fetched data to match the format of our static listings
-        const formattedListings = data.map((listing: any) => ({
-          id: listing._id,
-          title: listing.title,
-          location: listing.location,
-          price: listing.price,
-          image: listing.images[0] || '/placeholder-hostel.jpg',
-          amenities: listing.amenities,
-          rating: listing.rating || 4.5,
-          reviews: listing.reviews?.length || 0,
-          type: listing.roomType,
-          gender: listing.gender,
+        // Format the data to match our listing structure
+        const formattedListings = data.map((item: any) => ({
+          id: item._id || item.id,
+          title: item.title,
+          location: item.location,
+          price: item.price,
+          image: item.images && item.images.length > 0 ? item.images[0] : '/placeholder-hostel.jpg',
+          amenities: item.amenities || [],
+          rating: item.rating || 4.0,
+          reviews: item.reviews?.length || 0,
+          type: item.roomType,
+          gender: item.gender,
           saved: false,
-          city: listing.city,
-          isUserAdded: true
+          city: item.city.toLowerCase(),
         }));
         
         setUserAddedListings(formattedListings);
-      } finally {
-        clearTimeout(timeoutId);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'TimeoutError') {
+          console.error('API request timed out');
+          showToast('Could not load listings - request timed out', 'error');
+        } else {
+          console.error('Error fetching PG listings:', error);
+          // We'll still show static data, so only show error if debugging
+          if (process.env.NODE_ENV === 'development') {
+            showToast('Error loading PG listings, showing static data instead', 'warning');
+          }
+        }
       }
-    } catch (error) {
-      console.error('Error fetching PG listings:', error);
-      // Don't show error toast to user - just use static data
-      setUserAddedListings([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Fetch user-added listings on page load
+  // Fetch data when component mounts
   useEffect(() => {
-    fetchUserAddedListings()
-  }, [])
+    fetchUserAddedListings();
+  }, []);
 
   // Combine static and user-added listings
   const allPgListings = [...staticPgListings, ...userAddedListings]
 
   // Apply filters and return the filtered PG listings
   const getFilteredPgListings = () => {
-    // Start with all listings
-    let filtered = allPgListings
-
-    // Apply search filter
-    if (searchTerm.trim() !== "") {
-      const search = searchTerm.toLowerCase()
-      filtered = filtered.filter((pg) =>
-        pg.title.toLowerCase().includes(search) ||
-        pg.location.toLowerCase().includes(search)
-      )
-    }
-
-    // Apply city filter
-    if (city !== "all") {
-      filtered = filtered.filter((pg) => pg.city === city)
-    }
-
-    // Apply gender filter
-    if (gender !== "all") {
-      filtered = filtered.filter((pg) => 
-        pg.gender.toLowerCase() === gender || pg.gender.toLowerCase() === "unisex"
-      )
-    }
-
-    // Apply price range filter
-    filtered = filtered.filter(
-      (pg) => pg.price >= priceRange[0] && pg.price <= priceRange[1]
-    )
-
-    // Apply room type filters
-    const activeRoomTypes = Object.entries(selectedRoomTypes)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([type]) => type)
-
-    if (activeRoomTypes.length > 0) {
-      filtered = filtered.filter((pg) =>
-        activeRoomTypes.includes(pg.type.toLowerCase())
-      )
-    }
-
-    // Apply amenity filters
-    const activeAmenities = Object.entries(selectedAmenities)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([amenity]) => {
-        // Convert to match format in PG data
-        if (amenity === "wifi") return "WiFi"
-        if (amenity === "attachedBathroom") return "Attached Bathroom"
-        if (amenity === "ac") return "AC"
-        return amenity.charAt(0).toUpperCase() + amenity.slice(1)
-      })
-
-    if (activeAmenities.length > 0) {
-      filtered = filtered.filter((pg) =>
-        activeAmenities.every((amenity) =>
-          pg.amenities.includes(amenity)
-        )
-      )
-    }
-
-    // Apply rating filters
-    if (selectedRatings.rating4plus) {
-      filtered = filtered.filter((pg) => pg.rating >= 4)
-    } else if (selectedRatings.rating3plus) {
-      filtered = filtered.filter((pg) => pg.rating >= 3)
-    }
-
-    // Apply sorting
-    if (sortBy === "price_low_high") {
-      filtered.sort((a, b) => a.price - b.price)
-    } else if (sortBy === "price_high_low") {
-      filtered.sort((a, b) => b.price - a.price)
-    } else if (sortBy === "rating") {
-      filtered.sort((a, b) => b.rating - a.rating)
-    }
-
-    return filtered
+    // Combine both static and dynamic listings
+    const allListings = [...staticPgListings, ...userAddedListings];
+    
+    // Apply filters
+    return allListings.filter(pg => {
+      // Filter by price
+      if (pg.price < priceRange[0] || pg.price > priceRange[1]) return false;
+      
+      // Filter by city
+      if (city !== 'all' && pg.city.toLowerCase() !== city.toLowerCase()) return false;
+      
+      // Filter by gender
+      if (gender !== 'all' && pg.gender !== gender) return false;
+      
+      // Filter by room type
+      const hasSelectedRoomType = Object.entries(selectedRoomTypes).some(
+        ([type, isSelected]) => isSelected && pg.type.toLowerCase() === type.toLowerCase()
+      );
+      if (Object.values(selectedRoomTypes).some(value => value) && !hasSelectedRoomType) return false;
+      
+      // Filter by amenities
+      const selectedAmenitiesArray = Object.entries(selectedAmenities)
+        .filter(([_, isSelected]) => isSelected)
+        .map(([amenity]) => {
+          switch(amenity) {
+            case 'wifi': return 'WiFi';
+            case 'attachedBathroom': return 'Attached Bathroom';
+            case 'ac': return 'AC';
+            case 'food': return 'Food';
+            default: return amenity;
+          }
+        });
+      
+      if (selectedAmenitiesArray.length > 0) {
+        const hasAllSelectedAmenities = selectedAmenitiesArray.every(
+          amenity => pg.amenities.includes(amenity)
+        );
+        if (!hasAllSelectedAmenities) return false;
+      }
+      
+      // Filter by rating
+      if (selectedRatings.rating4plus && pg.rating < 4) return false;
+      if (selectedRatings.rating3plus && pg.rating < 3) return false;
+      
+      // Filter by search term
+      if (searchTerm) {
+        const lowercaseSearchTerm = searchTerm.toLowerCase();
+        const matchesSearch = 
+          pg.title.toLowerCase().includes(lowercaseSearchTerm) ||
+          pg.location.toLowerCase().includes(lowercaseSearchTerm) ||
+          pg.city.toLowerCase().includes(lowercaseSearchTerm);
+        if (!matchesSearch) return false;
+      }
+      
+      return true;
+    }).sort((a, b) => {
+      // Apply sorting
+      switch (sortBy) {
+        case 'price_low_high':
+          return a.price - b.price;
+        case 'price_high_low':
+          return b.price - a.price;
+        case 'rating':
+          return b.rating - a.rating;
+        case 'recommended':
+        default:
+          // Default sort by rating first, then by price
+          if (b.rating !== a.rating) {
+            return b.rating - a.rating;
+          }
+          return a.price - b.price;
+      }
+    });
   }
 
   const filteredPgListings = getFilteredPgListings()
@@ -401,11 +387,7 @@ export default function ExplorePage() {
   }
 
   const handleLikeClick = (id: number) => {
-    if (!isAuthenticated) {
-      setRedirectUrl(`/explore/${id}`)
-      setShowAuthModal(true)
-      return
-    }
+    
 
     // In a real app, this would call an API to save the PG
     showToast("PG added to favorites!", "success")
@@ -471,16 +453,14 @@ export default function ExplorePage() {
 
   // Add a button for admins to add new PG listing
   const AddPgButton = () => {
-    // Only show for authenticated admin users
-    if (!isAuthenticated || user?.userType !== 'admin') return null;
+
     
     return (
-      <Button 
+      <a href="/dashboard/add-pg" 
         className="fixed bottom-5 right-5 z-10 shadow-lg"
-        onClick={() => router.push('/dashboard/add-pg')}
       >
         Add Your PG
-      </Button>
+      </a>
     );
   };
 

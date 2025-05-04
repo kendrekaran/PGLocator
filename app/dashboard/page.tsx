@@ -9,11 +9,7 @@ export default function UserDashboard() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    if (!isLoading && (!user || user.userType !== 'user')) {
-      router.push('/login')
-    }
-  }, [user, isLoading, router])
+
 
   if (isLoading) {
     return <div>Loading...</div>

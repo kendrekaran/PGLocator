@@ -65,7 +65,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     </ToastContext.Provider>
   )
 }
-
 export function useToast() {
   const context = useContext(ToastContext)
   if (context === undefined) {
@@ -73,3 +72,4 @@ export function useToast() {
   }
   return context
 }
+

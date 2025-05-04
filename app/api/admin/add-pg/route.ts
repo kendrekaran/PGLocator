@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { connectToDatabase } from '@/lib/mongodb';
+import PgListing from '@/app/api/pg/model';
+import mongoose from 'mongoose';
 
 // Simplified function to validate PG data
 function validatePgData(data: any) {
@@ -23,10 +26,10 @@ function validatePgData(data: any) {
 export async function POST(req: NextRequest) {
   try {
     // Get admin status from cookie
-    const cookieStore = cookies();
-    const userCookieValue = cookieStore.get('user')?.value;
+    const cookieStore = await cookies();
+    const userCookie = cookieStore.get('user');
     
-    if (!userCookieValue) {
+    if (!userCookie || !userCookie.value) {
       return NextResponse.json({ 
         success: false, 
         error: 'Not authenticated' 
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest) {
     // Parse user data
     let userData;
     try {
-      userData = JSON.parse(decodeURIComponent(userCookieValue));
+      userData = JSON.parse(decodeURIComponent(userCookie.value));
     } catch (error) {
       console.error('Error parsing user cookie:', error);
       return NextResponse.json({ 
@@ -74,19 +77,37 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
     
-    // In a real application, we would save to database here
-    // For now, we'll just return success with the data
+    // Connect to the database
+    try {
+      await connectToDatabase();
+    } catch (error) {
+      console.error('MongoDB connection failed:', error);
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Database connection failed. Please try again later.' 
+      }, { status: 500 });
+    }
+    
+    // Prepare the PG listing data for saving
+    const newListing = {
+      ...pgData,
+      ownerId: new mongoose.Types.ObjectId(userData.id),
+      ownerName: `${userData.firstName} ${userData.lastName}`,
+      ownerContact: userData.phone || 'Not provided',
+      // Use default image if none provided
+      images: pgData.images && pgData.images.length > 0 
+        ? pgData.images 
+        : ['/placeholder-hostel.jpg'],
+      folder: pgData.folder || 'PGRooms'
+    };
+    
+    // Save to the database
+    const pgListing = await PgListing.create(newListing);
     
     return NextResponse.json({ 
       success: true, 
       message: 'PG listing added successfully',
-      data: {
-        ...pgData,
-        id: `pg_${Date.now()}`, // Generate a mock ID
-        ownerId: userData.id,
-        ownerName: `${userData.firstName} ${userData.lastName}`,
-        createdAt: new Date().toISOString()
-      }
+      data: pgListing
     }, { status: 201 });
     
   } catch (error) {
