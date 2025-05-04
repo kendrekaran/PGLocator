@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/components/toast-provider"
+import Image from "next/image"
 
 export default function AddPgPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -26,6 +27,7 @@ export default function AddPgPage() {
     address: "",
     city: "",
     folder: "PGRooms",
+    images: ["/placeholder-hostel.jpg"],
     amenities: {
       wifi: false,
       food: false,
@@ -36,6 +38,14 @@ export default function AddPgPage() {
       laundry: false
     }
   })
+  
+  // Predefined PG images
+  const predefinedImages = [
+    { src: "/placeholder-hostel.jpg", alt: "Default placeholder" },
+    { src: "/pg-kharghar.jpg", alt: "PG in Kharghar with striped wall" },
+    { src: "/pg-single-room.jpg", alt: "Single Room PG with purple sheets" },
+    { src: "/pg-girls-kolkata.jpg", alt: "PG Accommodation for Girls with guitar" }
+  ]
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -62,6 +72,13 @@ export default function AddPgPage() {
     }))
   }
   
+  const handleImageSelect = (imageSrc: string) => {
+    setFormData(prev => ({
+      ...prev,
+      images: [imageSrc]
+    }))
+  }
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -83,7 +100,8 @@ export default function AddPgPage() {
       const pgData = {
         ...formData,
         price: parseInt(formData.price),
-        amenities: amenitiesArray
+        amenities: amenitiesArray,
+        images: formData.images
       };
       
       console.log('Submitting PG data:', pgData);
@@ -263,6 +281,28 @@ export default function AddPgPage() {
                 value={formData.folder}
                 onChange={handleInputChange}
               />
+            </div>
+            
+            <div className="space-y-3">
+              <Label>Select PG Image</Label>
+              <div className="grid grid-cols-2 gap-4">
+                {predefinedImages.map((image, index) => (
+                  <div 
+                    key={index} 
+                    className={`relative h-40 rounded-md overflow-hidden cursor-pointer border-2 ${formData.images[0] === image.src ? 'border-primary' : 'border-transparent'}`}
+                    onClick={() => handleImageSelect(image.src)}
+                  >
+                    <div className="absolute inset-0">
+                      <Image 
+                        src={image.src} 
+                        alt={image.alt}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
             
             <div className="space-y-3">

@@ -682,11 +682,17 @@ export default function ExplorePage() {
       {filteredPgListings.length > 0 ? (
         viewType === "grid" ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {filteredPgListings.map((listing) => (
+            {filteredPgListings.map((listing, index) => (
               <Card key={listing.id} className="overflow-hidden">
                 <div className="relative">
                   <div className="relative h-48 cursor-pointer" onClick={() => handlePGClick(listing.id)}>
-                    <Image src={listing.image || "/placeholder.svg"} alt={listing.title} fill className="object-cover" />
+                    <Image 
+                      src={listing.image || "/placeholder-hostel.jpg"} 
+                      alt={listing.title} 
+                      fill 
+                      className="object-cover" 
+                      priority={index < 6}
+                    />
                   </div>
                   <Button
                     variant="ghost"
@@ -753,16 +759,17 @@ export default function ExplorePage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {filteredPgListings.map((listing) => (
+            {filteredPgListings.map((listing, index) => (
               <Card key={listing.id} className="overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                   <div className="relative md:w-1/3">
                     <div className="relative h-48 md:h-full cursor-pointer" onClick={() => handlePGClick(listing.id)}>
                       <Image
-                        src={listing.image || "/placeholder.svg"}
+                        src={listing.image || "/placeholder-hostel.jpg"}
                         alt={listing.title}
                         fill
                         className="object-cover"
+                        priority={index < 3}
                       />
                     </div>
                     <Button

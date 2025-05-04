@@ -21,12 +21,17 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    domains: ['i.pinimg.com'], // Add Pinterest domain for images
   },
   experimental: {
     webpackBuildWorker: true,
     parallelServerBuildTraces: true,
     parallelServerCompiles: true,
   },
+  // Add environment variables
+  env: {
+    MONGODB_URI: 'mongodb+srv://karan902:I2zUU1l6WKEiB3ai@cluster0.byki5.mongodb.net/pglocator',
+  }
 }
 
 if (userConfig) {
