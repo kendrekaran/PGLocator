@@ -453,11 +453,16 @@ export default function ExplorePage() {
 
   // Add a button for admins to add new PG listing
   const AddPgButton = () => {
-
+    const { user, isAuthenticated } = useAuth();
+    
+    // Only show for authenticated admin users
+    if (!isAuthenticated || user?.userType !== 'admin') {
+      return null;
+    }
     
     return (
       <a href="/dashboard/add-pg" 
-        className="fixed bottom-5 right-5 z-10 shadow-lg"
+        className="fixed bottom-5 right-5 z-10 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md shadow-lg"
       >
         Add Your PG
       </a>
