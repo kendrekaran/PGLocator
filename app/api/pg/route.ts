@@ -13,7 +13,14 @@ export async function GET(req: NextRequest) {
     } catch (error) {
       console.error('MongoDB connection failed:', error);
       // Return empty array instead of error
-      return NextResponse.json([], { status: 200 });
+      return NextResponse.json([], { 
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }
+      });
     }
     
     const { searchParams } = new URL(req.url);
@@ -57,16 +64,35 @@ export async function GET(req: NextRequest) {
       query.$text = { $search: searchTerm };
     }
     
+    // Log the query for debugging
+    console.log('PG listings query:', JSON.stringify(query));
+    
     const pgListings = await PgListing.find(query)
       .sort({ createdAt: -1 }) // Sort by newest first
       .select('-__v')
       .lean();
     
-    return NextResponse.json(pgListings);
+    // Log the number of results
+    console.log(`Found ${pgListings.length} PG listings`);
+    
+    return NextResponse.json(pgListings, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
+    });
   } catch (error) {
     console.error('Error fetching PG listings:', error);
     // Return empty array instead of error response
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json([], { 
+      status: 200,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      }
+    });
   }
 }
 
